@@ -1,0 +1,94 @@
+name: Template - Create Release PR
+
+on:
+  workflow_call:
+    inputs:
+      base_branch:
+        description: 'Base branch to check for release'
+        default: 'development'
+        required: false
+        type: string
+      target_branch:
+        description: 'Branch to to release'
+        default: 'main'
+        required: false
+        type: string
+      pr_title:
+        description: Pull request title
+        default: 'Release'
+        required: false
+        type: string
+      pr_body:
+        description: Pull request body
+        required: false
+        type: string
+      pr_template:
+        description: Pull request template
+        required: false
+        type: string
+      pr_reviewer:
+        description: Pull request reviewers, comma-separated list (no spaces)
+        required: false
+        type: string
+      pr_assignee:
+        description: Pull request assignees, comma-separated list (no spaces)
+        required: false
+        type: string
+      pr_label:
+        description: Pull request labels, comma-separated list (no spaces)
+        required: false
+        type: string
+      pr_milestone:
+        description: Pull request milestone
+        required: false
+        type: string
+      pr_draft:
+        description: Draft pull request
+        required: false
+        type: boolean
+      pr_allow_empty:
+        description: Create PR even if no changes
+        required: false
+        type: boolean
+      commit_number:
+        description: 'Number of commits before releasing'
+        default: 1
+        required: false
+        type: number
+
+jobs:
+  commits-counter:
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.counter.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - id: counter
+        run: echo "::set-output name=count::$(git rev-list --count origin/${{ inputs.target_branch }}..origin/${{ inputs.base_branch }})"
+  release-pull-request:
+    runs-on: ubuntu-latest
+    needs: commits-counter
+    if: "needs.commits-counter.outputs.count >= inputs.commit_number"
+    steps:
+      - name: Echo commit count
+        run: echo "The commit count is ${{needs.commits-counter.outputs.count}}. Expected at least ${{ inputs.commit_number }}"
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Release Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ inputs.base_branch }}
+          destination_branch: ${{ inputs.target_branch }}
+          pr_title: ${{ inputs.pr_title }}
+          pr_body: ${{ inputs.pr_body }}
+          pr_template: ${{ inputs.pr_template }}
+          pr_reviewer: ${{ inputs.pr_reviewer }}
+          pr_assignee: ${{ inputs.pr_assignee }}
+          pr_label: ${{ inputs.pr_label }}
+          pr_milestone: ${{ inputs.pr_milestone }}
+          pr_draft: ${{ inputs.pr_draft }}
+          pr_allow_empty: ${{ inputs.pr_allow_empty }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
